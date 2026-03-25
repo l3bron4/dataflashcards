@@ -1,0 +1,35 @@
+name: Daily Firestore to BigQuery Ingestion
+
+# 1. PROGRAMMATION (CRON)
+on:
+  schedule:
+    # Tourne tous les jours à minuit UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Permet de lancer le script à la main pour tester
+
+jobs:
+  run_script:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 2. RÉCUPÉRATION DU CODE
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 3. INSTALLATION DE PYTHON
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      # 4. INSTALLATION DES BIBLIOTHÈQUES
+      - name: Install dependencies
+        run: |
+          pip install google-cloud-firestore google-cloud-bigquery
+
+      # 5. EXECUTION DU SCRIPT
+      - name: Run Ingestion Script
+        env:
+          # On passe le secret GitHub au script Python
+          GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+        run: python ingestion.py
