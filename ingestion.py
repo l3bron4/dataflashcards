@@ -4,62 +4,59 @@ from google.cloud import firestore
 from google.cloud import bigquery
 from google.oauth2 import service_account
 
-# 1. CONFIGURATION DES VARIABLES
-# Modifie ces noms selon tes besoins
-PROJECT_ID = "dataflashcards"
+# 1. CONFIGURATION CROSS-PROJECT
+SOURCE_PROJECT_ID = "dataflashcards"       # Là où est ton Firestore
+DEST_PROJECT_ID = "my-project-florent-bq"  # Ton projet BigQuery habituel
 DATASET_ID = "raw_data_dataflashcards"
 TABLE_ID = "analytics_promo_raw"
 COLLECTION_NAME = "analytics_promo"
 
 def run_ingestion():
     # 2. AUTHENTIFICATION
-    # On récupère la clé JSON depuis la variable d'environnement (configurée dans GitHub Actions)
     info = json.loads(os.environ.get("GCP_SA_KEY"))
     creds = service_account.Credentials.from_service_account_info(info)
 
-    # Initialisation des clients
-    db = firestore.Client(credentials=creds, project=PROJECT_ID)
-    bq_client = bigquery.Client(credentials=creds, project=PROJECT_ID)
+    # Initialisation des clients sur les DEUX projets différents
+    # On lit dans SOURCE et on écrit dans DEST
+    db = firestore.Client(credentials=creds, project=SOURCE_PROJECT_ID)
+    bq_client = bigquery.Client(credentials=creds, project=DEST_PROJECT_ID)
 
-    print(f"--- Début de l'extraction de Firestore ({COLLECTION_NAME}) ---")
+    print(f"--- Extraction de Firestore ({SOURCE_PROJECT_ID} / {COLLECTION_NAME}) ---")
     
-    # 3. EXTRACTION DE FIRESTORE
     docs = db.collection(COLLECTION_NAME).stream()
     rows_to_insert = []
 
     for doc in docs:
         data = doc.to_dict()
-        # On ajoute l'ID du document pour le suivi
         data["document_id"] = doc.id
         
-        # Formatage des dates pour BigQuery (Firebase renvoie des objets datetime)
+        # Nettoyage des dates pour BigQuery
         for key, value in data.items():
             if hasattr(value, 'isoformat'):
                 data[key] = value.isoformat()
         
         rows_to_insert.append(data)
 
-    print(f"Extraction réussie : {len(rows_to_insert)} documents trouvés.")
+    print(f"Extraction réussie : {len(rows_to_insert)} documents.")
 
-    # 4. CHARGEMENT VERS BIGQUERY
+    # 3. CHARGEMENT VERS LE BIGQUERY HABITUEL
     if rows_to_insert:
-        table_ref = f"{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}"
+        table_ref = f"{DEST_PROJECT_ID}.{DATASET_ID}.{TABLE_ID}"
         
-        # Configuration de l'ingestion : on remplace la table à chaque fois (Write Truncate)
-        # Idéal pour la pratique d'ingestion quotidienne
         job_config = bigquery.LoadJobConfig(
             write_disposition="WRITE_TRUNCATE",
-            autodetect=True, # BigQuery va créer le schéma tout seul
+            autodetect=True,
         )
 
+        print(f"Envoi des données vers {table_ref}...")
         job = bq_client.load_table_from_json(
             rows_to_insert, table_ref, job_config=job_config
         )
-        job.result()  # Attend la fin de l'insertion
+        job.result() 
 
-        print(f"--- Succès ! Données chargées dans {table_ref} ---")
+        print(f"--- Succès ! Données disponibles dans {DEST_PROJECT_ID} ---")
     else:
-        print("Aucune donnée à importer.")
+        print("Aucune donnée trouvée.")
 
 if __name__ == "__main__":
     run_ingestion()
