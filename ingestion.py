@@ -7,7 +7,7 @@ from google.oauth2 import service_account
 # 1. CONFIGURATION DES VARIABLES
 # Modifie ces noms selon tes besoins
 PROJECT_ID = "dataflashcards"
-DATASET_ID = "raw_data"
+DATASET_ID = "raw_data_dataflashcards"
 TABLE_ID = "analytics_promo_raw"
 COLLECTION_NAME = "analytics_promo"
 
