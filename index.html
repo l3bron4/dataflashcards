@@ -277,6 +277,10 @@
         currentCategory = category;
         currentIndex = 0;
         document.getElementById('victory-note').classList.add('hidden');
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            const isActive = btn.getAttribute('onclick').includes(`'${category}'`);
+            btn.className = `filter-btn px-5 py-2 rounded-full text-xs font-bold transition-all ${isActive ? 'bg-indigo-600 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-100 hover:bg-slate-50'}`;
+        });
         let baseCards = category === 'Tous' ? [...allCards] : allCards.filter(c => c.cat === category);
         let weightedPool = [];
         baseCards.forEach(card => {
